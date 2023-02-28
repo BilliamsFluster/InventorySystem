@@ -114,7 +114,18 @@ void InventoryUI::DisplayUI()
 			
 		}
 }
-
+void PushItemToFile(Item item)
+{
+	ofstream outputStoreFile("storeInventory.txt");
+	if(outputStoreFile.is_open())
+	{
+		for(const auto& storeItem : storeItems)
+			{
+				outputStoreFile << item.id << item.name << item.quantity <<item.price;
+			outputStoreFile.close();
+			}
+	}
+}
 // Exception class for invalid inputs
 class InvalidInputException : public exception {
 public:
@@ -200,6 +211,8 @@ void AddItem(vector<shared_ptr<Item>>& inventory) {
     // Create new item and add it to the inventory
     shared_ptr<Item> newItem = make_shared<Item>(id, name, quantity, price);
     inventory.push_back(newItem);
+	PushItemToFile(newItem);
+	
 }
 
 // Function to update an existing item in the inventory
@@ -223,8 +236,22 @@ void UpdateItem(vector<shared_ptr<Item>>& inventory) {
 
 int main()
 {
-	ifstream storeItems;
-	InventoryUI UI;
+InventoryUI UI;
 
+	
+	ifstream storeItems("storeInventory.txt");
+	if(storeItems.is_open())
+	{
+		int id;
+    string name;
+    int quantity;
+    double price;
+		while(storeItems >> id >> name >> quantity >> price)
+			{
+				UI.inventory.push_back({id, name, quantity, price});
+				storeItems.close();
+			}
+	}
+	
 	UI.DisplayUI();
 }
