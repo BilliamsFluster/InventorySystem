@@ -6,6 +6,7 @@
 #include <mutex>
 #include <thread>
 #include <chrono>
+#include <sstream>
 
 using namespace std;
 void AddItem(vector<shared_ptr<class Item>>& inventory);
@@ -31,21 +32,7 @@ public:
     string GetName() const { return name; }
     constexpr int GetQuantity() const { return quantity; }
     constexpr double GetPrice() const { return price; }
-		void ItemComposition()
-		{
-			PrintString("Item Name: ");
-			GetName();
-			"\n";
-			PrintString("Item Id: ");
-			GetId();
-			"\n";
-			PrintString("Item Quantity: ");
-			GetQuantity();
-			"\n";
-			PrintString("Item Price: ");
-			GetPrice();
-			"\n";
-		}
+		
 
 private:
     int id;
@@ -56,18 +43,31 @@ private:
 
 class InventoryUI
 {
-private:
+public:
 	vector<shared_ptr<Item>> inventory;
 public:
+static InventoryUI* inventoryInstance;
+static InventoryUI* Get() // getting the singleton ref
+	{
+		if (inventoryInstance == NULL)
+		{
+			inventoryInstance = new InventoryUI();
+		}
+		return inventoryInstance;
+	}
+
 	void DisplayUI();
 vector<shared_ptr<Item>>& GetInventory(){return inventory;};
 void SetInventory(vector<shared_ptr<Item>>& inventory){this->inventory = inventory;};
-void DisplayInventory();
+void DisplayInventory(const vector<shared_ptr<Item>>& inventory);
 
 };
+InventoryUI* InventoryUI::inventoryInstance = NULL;
 
 void InventoryUI::DisplayUI()
 {
+	InventoryUI* UI = InventoryUI::Get();
+	auto inventory = UI->GetInventory();
 	char response;
 	while(response != 'q' || response != 'Q')
 		{
@@ -79,30 +79,29 @@ void InventoryUI::DisplayUI()
 			PrintString("Q: Exit Program\n");
 
 			
-			PrintString("Enter in a response: ");
+			PrintString("Enter in a response: \n");
 			std::cin>>response;
-			int intResponse = response - '0';
 			switch(response)
 				{
 					case('1'):
 						{
-							DisplayInventory();
+							DisplayInventory(inventory);
 							AddItem(InventoryUI::GetInventory());
 						break;
 						}
 					case('2'):
 						{
-							DisplayInventory();
+							DisplayInventory(inventory);
 						break;
 						}
 					case('3'):
 						{
-							DisplayInventory();
+							DisplayInventory(inventory);
 						break;
 						}
 					case('4'):
 						{
-							DisplayInventory();
+							DisplayInventory(inventory);
 						break;
 						}
 					default:
@@ -114,7 +113,19 @@ void InventoryUI::DisplayUI()
 			
 		}
 }
-
+void PushItemToFile(Item& item)
+{
+	ofstream outputStoreFile("storeInventory.txt");
+	auto inventory = InventoryUI::Get()->GetInventory();
+	if(outputStoreFile.is_open())
+	{
+		for(auto& item: inventory)
+				outputStoreFile << item->GetId() << " " << item->GetName() << " " << item->GetQuantity() << " " << item->GetPrice() << std::endl;
+		outputStoreFile.flush();
+		outputStoreFile.close();
+			
+	}
+}
 // Exception class for invalid inputs
 class InvalidInputException : public exception {
 public:
@@ -134,23 +145,32 @@ public:
 // Mutex for multi-threading
 mutex mtx;
 
-// Function to add a new item to the inventory
-void InventoryUI::DisplayInventory()
+
+void InventoryUI::DisplayInventory(const vector<shared_ptr<Item>>& inventory)
 {
-InventoryUI inventoryUI;
-auto inventory = inventoryUI.GetInventory();
-	if(inventory.size() <= 0)
-	{
-		PrintString("No items in the inventory! \n");
-	}
-	else{
-		for(int i = 0; i < inventory.size() - 1; i++)
+		PrintString("Current items in Inventory:\n");
+    for (const auto& item : inventory) 
 		{
-		inventory[i]->ItemComposition();
-		}
-	}
-	
+        
+			PrintString("Item Name: ");
+			std::cout<< item->GetName() << std::endl;
+			
+			PrintString("Item Id: ");
+			std::cout<< item->GetId() << std::endl;;
+			
+			PrintString("Item Quantity: ");
+			std::cout<< item->GetQuantity() << std::endl;;
+			
+			PrintString("Item Price: ");
+			std::cout<< item->GetPrice() << std::endl;
+    }
 }
+
+	
+
+
+
+
 void AddItem(vector<shared_ptr<Item>>& inventory) {
     int id, quantity;
     double price;
@@ -200,7 +220,10 @@ void AddItem(vector<shared_ptr<Item>>& inventory) {
     // Create new item and add it to the inventory
     shared_ptr<Item> newItem = make_shared<Item>(id, name, quantity, price);
     inventory.push_back(newItem);
+	PushItemToFile(*newItem);
+	
 }
+
 
 // Function to update an existing item in the inventory
 void UpdateItem(vector<shared_ptr<Item>>& inventory) {
@@ -221,9 +244,29 @@ void UpdateItem(vector<shared_ptr<Item>>& inventory) {
     // Find the item in the
 }
 
+
+
 int main()
 {
-	InventoryUI UI;
+InventoryUI* UI = InventoryUI::Get();
 
-	UI.DisplayUI();
+	
+	ifstream storeItems("storeInventory.txt");
+	if(storeItems.is_open())
+	{
+		int id;
+    string name;
+    int quantity;
+    double price;
+		while(storeItems >> id >> name >> quantity >> price)
+			{
+				shared_ptr<Item> item = make_shared<Item>(id, name, quantity, price);
+				UI->inventory.push_back(item);
+				
+			}
+		storeItems.close();
+	}
+	
+	std::cout<< UI->GetInventory().size();
+	UI->DisplayUI();
 }
