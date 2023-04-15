@@ -7,11 +7,14 @@
 #include <thread>
 #include <chrono>
 #include <sstream>
+#include <algorithm>
 
 using namespace std;
 void AddItem(vector<shared_ptr<class Item>>& inventory);
+void RemoveItem(int itemIdToRemove, vector<shared_ptr<Item>>& inventory );
+void UpdateItem(vector<shared_ptr<Item>>& inventory);
 
-void PrintString(std::string text, long time = 75) // adds each character to the stream for each millisecond
+void PrintString(std::string text, long time = 5) // adds each character to the stream for each millisecond
 
 {
 	
@@ -32,6 +35,16 @@ public:
     string GetName() const { return name; }
     constexpr int GetQuantity() const { return quantity; }
     constexpr double GetPrice() const { return price; }
+		
+		Item& SetId(int newId) { id = newId; return *this; }
+		inline void SetPrice(double newPrice) noexcept { price = newPrice; }
+		inline void SetQuantity(int newQuantity) noexcept { quantity = newQuantity; }
+		inline void SetName(std::string newName) noexcept { name = newName; }
+
+
+
+
+
 		
 
 private:
@@ -67,9 +80,8 @@ InventoryUI* InventoryUI::inventoryInstance = NULL;
 void InventoryUI::DisplayUI()
 {
 	InventoryUI* UI = InventoryUI::Get();
-	auto inventory = UI->GetInventory();
 	char response;
-	while(response != 'q' || response != 'Q')
+	while(response != 'q' &&  response != 'Q')
 		{
 			PrintString("Welcome to the Store Inventory System! \n\n");
 			PrintString("1: Add Item\n");
@@ -85,23 +97,31 @@ void InventoryUI::DisplayUI()
 				{
 					case('1'):
 						{
+							std::cout<<UI->inventory.size();
 							DisplayInventory(inventory);
+							
 							AddItem(InventoryUI::GetInventory());
+							
 						break;
 						}
 					case('2'):
 						{
-							DisplayInventory(inventory);
+							DisplayInventory(UI->inventory);
+							UpdateItem(InventoryUI::GetInventory());
 						break;
 						}
 					case('3'):
 						{
-							DisplayInventory(inventory);
+							DisplayInventory(UI->inventory);
+							int numResponse;
+							PrintString("Remove item with valid id: ");
+							std::cin>>numResponse;
+							RemoveItem(numResponse,UI->inventory);
 						break;
 						}
 					case('4'):
 						{
-							DisplayInventory(inventory);
+							DisplayInventory(UI->inventory);
 						break;
 						}
 					default:
@@ -149,6 +169,7 @@ mutex mtx;
 void InventoryUI::DisplayInventory(const vector<shared_ptr<Item>>& inventory)
 {
 		PrintString("Current items in Inventory:\n");
+	std::cout<<inventory.size()<<std::endl;
     for (const auto& item : inventory) 
 		{
         
@@ -165,13 +186,79 @@ void InventoryUI::DisplayInventory(const vector<shared_ptr<Item>>& inventory)
 			std::cout<< item->GetPrice() << std::endl;
     }
 }
+// Function to update an existing item in the inventory
+void UpdateItem(vector<shared_ptr<Item>>& inventory) {
+    int id, quantity;
+    double price;
+    string name;
 
+    cout << "Enter item ID: ";
+    cin >> id;
+
+    // Check for invalid input
+    if (cin.fail() || id < 1) {
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        throw InvalidInputException();
+    }
+
+    // Find the item in the inventory
+    auto itr = find_if(inventory.begin(), inventory.end(), [=](auto item) {
+        return item->GetId() == id;
+    });
+
+    if (itr == inventory.end()) {
+        throw ItemNotFoundException();
+    }
+
+    shared_ptr<Item>& item = *itr;
+
+    cout << "Enter new item name (leave blank to keep current): ";
+    cin.ignore();
+    getline(cin, name);
+
+    if (!name.empty()) {
+        item->SetName(name);
+    }
+
+    cout << "Enter new item quantity (negative value to keep current): ";
+    cin >> quantity;
+
+    if (quantity >= 0) {
+        item->SetQuantity(quantity);
+    }
+
+    cout << "Enter new item price (negative value to keep current): ";
+    cin >> price;
+
+    if (price >= 0) {
+        item->SetPrice(price);
+    }
+
+    PushItemToFile(*item.get());
+}
+
+	
+void RemoveItem(int itemIdToRemove, vector<shared_ptr<Item>>& inventory) {
+    auto itr = find_if(inventory.begin(), inventory.end(), [=](auto item) {
+        return item->GetId() == itemIdToRemove;
+    });
+    if (itr != inventory.end()) {
+        int removedIndex = std::distance(inventory.begin(), itr);
+        inventory.erase(itr);
+        inventory[removedIndex] = nullptr;
+    }
+}
+	
+
+
+	
 	
 
 
 
 
-void AddItem(vector<shared_ptr<Item>>& inventory) {
+void AddItem(vector<shared_ptr<Item>>& inventoryRef) {
     int id, quantity;
     double price;
     string name;
@@ -187,7 +274,7 @@ void AddItem(vector<shared_ptr<Item>>& inventory) {
     }
 
     // Check if item already exists
-    for (const auto& item : inventory) {
+    for (const auto& item : inventoryRef) {
         if (item->GetId() == id) {
             throw InvalidInputException();
         }
@@ -219,32 +306,11 @@ void AddItem(vector<shared_ptr<Item>>& inventory) {
 
     // Create new item and add it to the inventory
     shared_ptr<Item> newItem = make_shared<Item>(id, name, quantity, price);
-    inventory.push_back(newItem);
-	PushItemToFile(*newItem);
+    inventoryRef.push_back(newItem);
+		std::cout<<inventoryRef.size();
+		PushItemToFile(*newItem);
 	
 }
-
-
-// Function to update an existing item in the inventory
-void UpdateItem(vector<shared_ptr<Item>>& inventory) {
-    int id, quantity;
-    double price;
-    string name;
-
-    cout << "Enter item ID: ";
-    cin >> id;
-
-    // Check for invalid input
-    if (cin.fail() || id < 1) {
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-        throw InvalidInputException();
-    }
-
-    // Find the item in the
-}
-
-
 
 int main()
 {
